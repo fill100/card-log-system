@@ -80,55 +80,124 @@ with st.expander("➕ เพิ่มรายการใหม่", expanded=T
 # ส่วนที่ 2: แสดงรายการและแก้ไข (Card UI)
 st.divider()
 st.subheader("🛠️ รายการล่าสุด (แก้ไข/ลบ)")
+# ฟังก์ชันดึงข้อมูลแบบปลอดภัย
+def get_safe_data():
+    try:
+        df = get_data()
+        # รายชื่อคอลัมน์ที่ระบบต้องใช้
+        required_cols = [
+            'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
+            'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
+        ]
+        
+        # ตรวจสอบ: ถ้าไม่มีคอลัมน์ไหนให้สร้างขึ้นมาเป็นค่าว่าง
+        if df.empty:
+            return pd.DataFrame(columns=required_cols)
+            
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = "" # สร้างคอลัมน์ที่ขาดหายไป
+        
+        return df[required_cols] # คืนค่าเฉพาะคอลัมน์ที่กำหนด
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการอ่านข้อมูล: {e}")
+        return pd.DataFrame()
 
-try:
-    df = get_data()
-    if not df.empty:
-        df_display = df.iloc[::-1].copy() # ล่าสุดขึ้นก่อน
+# ส่วนที่ 1: เพิ่มรายการใหม่
+with st.expander("➕ เพิ่มรายการใหม่", expanded=True):
+    with st.form("my_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            f_id = st.text_input("Freshdesk ID")
+            center = st.selectbox("ศูนย์บริการ", LOCATIONS)
+        with col2:
+            edit_info = st.selectbox("ต้องการแก้ไขข้อมูล", EDIT_LIST)
+            staff = st.selectbox("เจ้าหน้าที่แก้ไขข้อมูล", STAFF_LIST)
+        with col3:
+            status = st.selectbox("อนุมัติแก้หรือไม่", STATUS_LIST)
+            note = st.text_input("หมายเหตุ")
+        detail = st.text_area("รายละเอียด")
+        
+        if st.form_submit_button("🚀 บันทึกข้อมูล"):
+            if SELECT_TEXT in [center, edit_info, staff, status] or not f_id or not detail.strip():
+                st.error("❌ กรุณากรอกข้อมูลให้ครบถ้วน")
+            else:
+                now = datetime.now()
+                display_date = f"{now.day}/{now.month:02d}/{now.year + 543}"
+                new_row = {
+                    'วันที่รับเคส': display_date, 'Freshdesk ID': f_id, 'รายละเอียด': detail,
+                    'ศูนย์บริการ': center, 'ต้องการแก้ไขข้อมูล': edit_info,
+                    'เจ้าหน้าที่แก้ไขข้อมูล': staff, 'อนุมัติแก้หรือไม่': status, 'หมายเหตุ': note
+                }
+                
+                df_current = get_safe_data()
+                df_updated = pd.concat([df_current, pd.DataFrame([new_row])], ignore_index=True)
+                update_gsheets(df_updated)
+                st.success("✅ บันทึกข้อมูลเรียบร้อย!")
+                st.rerun()
 
-        if st.button("🔄 Refresh ข้อมูล"):
-            st.rerun()
+# ส่วนที่ 2: แสดงรายการและแก้ไข (Card UI)
+st.divider()
+st.subheader("🛠️ รายการล่าสุด")
 
-        for index, row in df_display.iterrows():
-            status_icon = "🔵"
-            if row['อนุมัติแก้หรือไม่'] == 'อนุมัติ': status_icon = "🟢"
-            elif row['อนุมัติแก้หรือไม่'] == 'ไม่อนุมัติ': status_icon = "🔴"
+df = get_safe_data()
 
-            with st.container(border=True):
-                c1, c2, c3 = st.columns([2, 5, 1.5])
-                with c1:
-                    st.markdown(f"**ID:** {row['Freshdesk ID']}")
-                    st.caption(f"📅 {row['วันที่รับเคส']}")
-                with c2:
-                    st.markdown(f"{status_icon} **{row['อนุมัติแก้หรือไม่']}**")
-                    st.write(f"📍 {row['ศูนย์บริการ']} | 👤 {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
-                    st.info(f"📝 {row['รายละเอียด']}")
-                with c3:
-                    if st.button("📝 แก้ไข", key=f"edit_{index}"):
-                        st.session_state[f"edit_mode_{index}"] = True
-                    if st.button("🗑️ ลบ", key=f"del_{index}"):
-                        df = df.drop(index)
-                        update_gsheets(df)
-                        st.rerun()
+if not df.empty:
+    if st.button("🔄 Refresh ข้อมูล"):
+        st.rerun()
 
-                # ฟอร์มแก้ไขภายใน Card
-                if st.session_state.get(f"edit_mode_{index}", False):
-                    with st.form(key=f"form_{index}"):
-                        new_status = st.selectbox("แก้ไขสถานะ", STATUS_LIST, 
-                                                 index=STATUS_LIST.index(row['อนุมัติแก้หรือไม่']) if row['อนุมัติแก้หรือไม่'] in STATUS_LIST else 0)
-                        new_note = st.text_input("แก้ไขหมายเหตุ", value=row['หมายเหตุ'] if pd.notna(row['หมายเหตุ']) else "")
+    # เรียงลำดับเอาอันล่าสุดขึ้นก่อน (ถ้ามีข้อมูล)
+    df_display = df.iloc[::-1].copy()
+
+    for index, row in df_display.iterrows():
+        # ตรวจสอบค่าว่างเพื่อป้องกัน Error เวลาแสดงผล
+        row_id = row['Freshdesk ID'] if pd.notna(row['Freshdesk ID']) else "N/A"
+        row_status = row['อนุมัติแก้หรือไม่'] if pd.notna(row['อนุมัติแก้หรือไม่']) else "รอตรวจสอบ"
+        
+        status_icon = "🔵"
+        if row_status == 'อนุมัติ': status_icon = "🟢"
+        elif row_status == 'ไม่อนุมัติ': status_icon = "🔴"
+
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([2, 5, 1.5])
+            with c1:
+                st.markdown(f"**ID:** {row_id}")
+                st.caption(f"📅 {row['วันที่รับเคส']}")
+            with c2:
+                st.markdown(f"{status_icon} **{row_status}**")
+                st.write(f"📍 {row['ศูนย์บริการ']} | 👤 {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
+                st.info(f"📝 {row['รายละเอียด']}")
+            with c3:
+                if st.button("📝 แก้ไข", key=f"edit_{index}"):
+                    st.session_state[f"edit_mode_{index}"] = True
+                if st.button("🗑️ ลบ", key=f"del_{index}"):
+                    df_to_save = df.drop(index)
+                    update_gsheets(df_to_save)
+                    st.rerun()
+
+            # ฟอร์มแก้ไขภายใน Card
+            if st.session_state.get(f"edit_mode_{index}", False):
+                with st.form(key=f"form_{index}"):
+                    st.write(f"✍️ แก้ไขเคส ID: {row_id}")
+                    
+                    try:
+                        current_idx = STATUS_LIST.index(row_status)
+                    except:
+                        current_idx = 0
                         
-                        col_f1, col_f2 = st.columns(2)
-                        if col_f1.form_submit_button("💾 บันทึก"):
-                            df.at[index, 'อนุมัติแก้หรือไม่'] = new_status
-                            df.at[index, 'หมายเหตุ'] = new_note
-                            update_gsheets(df)
-                            st.session_state[f"edit_mode_{index}"] = False
-                            st.rerun()
-                        if col_f2.form_submit_button("❌ ยกเลิก"):
-                            st.session_state[f"edit_mode_{index}"] = False
-                            st.rerun()
-    else:
-        st.write("ยังไม่มีข้อมูลในระบบ")
-except Exception as e:
+                    new_status = st.selectbox("แก้ไขสถานะ", STATUS_LIST, index=current_idx)
+                    new_note = st.text_input("แก้ไขหมายเหตุ", value=str(row['หมายเหตุ']) if pd.notna(row['หมายเหตุ']) else "")
+                    
+                    col_f1, col_f2 = st.columns(2)
+                    if col_f1.form_submit_button("💾 บันทึก"):
+                        df.at[index, 'อนุมัติแก้หรือไม่'] = new_status
+                        df.at[index, 'หมายเหตุ'] = new_note
+                        update_gsheets(df)
+                        st.session_state[f"edit_mode_{index}"] = False
+                        st.rerun()
+                    if col_f2.form_submit_button("❌ ยกเลิก"):
+                        st.session_state[f"edit_mode_{index}"] = False
+                        st.rerun()
+else:
+    st.info("💡 ยังไม่มีข้อมูลในระบบ หรือกำลังโหลดข้อมูล...")
     st.error(f"Error: {e}")
