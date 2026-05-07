@@ -79,7 +79,7 @@ with st.expander("➕ เพิ่มรายการใหม่", expanded=T
 
 # ส่วนที่ 2: แสดงรายการและแก้ไข (Card UI)
 st.divider()
-st.subheader("🛠️ รายการล่าสุด (แก้ไข/ลบผ่าน Cloud)")
+st.subheader("🛠️ รายการล่าสุด (แก้ไข/ลบ)")
 
 try:
     df = get_data()
