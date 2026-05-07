@@ -46,44 +46,34 @@ st.title("📝 ระบบบันทึก Log ออนไลน์ (Google 
 
 # ฟังก์ชันดึงข้อมูลแบบปลอดภัย
 def get_safe_data():
-   def get_safe_data():
+    # กำหนดคอลัมน์มาตรฐานไว้ก่อน
+    required_cols = [
+        'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
+        'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
+    ]
+    
     try:
-        # ttl="0" เพื่อให้ดึงข้อมูลใหม่ล่าสุดเสมอ ไม่ใช้ cache
+        # พยายามอ่านข้อมูล
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl="0")
         
-        # ตัดช่องว่างหน้า-หลังชื่อคอลัมน์ทิ้ง (แก้ปัญหาพิมพ์เกิน)
-        df.columns = [str(c).strip() for c in df.columns]
-        
-        required_cols = [
-            'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
-            'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
-        ]
-        
-        if df.empty:
+        # ถ้าอ่านได้เป็น None หรือไม่ใช่ DataFrame
+        if df is None:
             return pd.DataFrame(columns=required_cols)
             
-        # ตรวจสอบคอลัมน์ ถ้าไม่มีให้สร้างหลอกไว้ป้องกันพัง
+        # ล้างชื่อคอลัมน์ (ตัดช่องว่าง)
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # ตรวจสอบว่าคอลัมน์ครบไหม ถ้าไม่ครบให้สร้างใหม่เป็นค่าว่าง
         for col in required_cols:
             if col not in df.columns:
                 df[col] = "" 
         
         return df[required_cols]
-    except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการอ่านข้อมูล: {e}")
-        return pd.DataFrame()
         
-        if st.form_submit_button("🚀 บันทึกข้อมูล"):
-            if SELECT_TEXT in [center, edit_info, staff, status] or not f_id or not detail.strip():
-                st.error("❌ กรุณากรอกข้อมูลให้ครบถ้วน")
-            else:
-                now = datetime.now()
-                display_date = f"{now.day}/{now.month:02d}/{now.year + 543}"
-                new_row = {
-                    'วันที่รับเคส': display_date, 'Freshdesk ID': f_id, 'รายละเอียด': detail,
-                    'ศูนย์บริการ': center, 'ต้องการแก้ไขข้อมูล': edit_info,
-                    'เจ้าหน้าที่แก้ไขข้อมูล': staff, 'อนุมัติแก้หรือไม่': status, 'หมายเหตุ': note
-                }
-                
+    except Exception as e:
+        # หากเกิด Error ใดๆ ให้พิมพ์บอกในแอป (เพื่อเช็คสาเหตุ) และส่งตารางเปล่ากลับไป
+        st.warning(f"⚠️ ระบบกำลังเชื่อมต่อหรือรอข้อมูลจาก Google Sheets: {e}")
+        return pd.DataFrame(columns=required_cols)
                 df_current = get_safe_data()
                 df_updated = pd.concat([df_current, pd.DataFrame([new_row])], ignore_index=True)
                 update_gsheets(df_updated)
