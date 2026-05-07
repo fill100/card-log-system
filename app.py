@@ -117,28 +117,27 @@ if not df_view.empty:
         elif status_val == "ไม่อนุมัติ": color = "red"; icon = "❌"
         elif status_val == "สามารถแก้ไขได้เลย": color = "blue"; icon = "⚡"
         else: color = "gray"; icon = "⏳"
-
-        with st.container(border=True):
+            with st.container(border=True):
             # ส่วนหัวของ Card
-            c1, c2, c3 = st.columns([1.5, 4, 1.5])
-
-            with c1:
-            # แก้จาก row['Freshdesk ID'] เป็นการลบ .0 ออกแบบสดๆ อีกครั้งเพื่อความปลอดภัย
-            clean_id = str(row['Freshdesk ID']).replace('.0', '') if pd.notna(row['Freshdesk ID']) else "N/A"
-            st.subheader(f"🆔 {clean_id}")
-            st.caption(f"📅 {row['วันที่รับเคส']}")
+                c1, c2, c3 = st.columns([1.5, 4, 1.5])
+                with c1:
+                # บรรทัดข้างล่างนี้ต้องย่อหน้าเข้าไป (สังเกตระยะห่างจากขอบ)
+                    clean_id = str(row['Freshdesk ID']).replace('.0', '') if pd.notna(row['Freshdesk ID']) else "N/A"
+                    st.subheader(f"🆔 {clean_id}")
+                    st.caption(f"📅 {row['วันที่รับเคส']}")
             
-            with c2:
-                # แสดงสถานะ อนุมัติแก้หรือไม่ แบบเน้นๆ
-                st.markdown(f"### {icon} :{color}[{status_val}]")
-                st.markdown(f"**📍 ศูนย์:** {row['ศูนย์บริการ']} | **👤 โดย:** {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
+                with c2:
+                # บรรทัดเหล่านี้ก็ต้องย่อหน้าเข้าไปให้ตรงกัน
+                    status_val = str(row['อนุมัติแก้หรือไม่'])
+                    st.markdown(f"### {icon} :{color}[{status_val}]")
+                    st.markdown(f"**📍 ศูนย์:** {row['ศูนย์บริการ']} | **👤 โดย:** {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
                 
                 # แสดง รายละเอียด แบบกล่องข้อความ
-                if row['รายละเอียด']:
-                    st.info(f"**📝 รายละเอียด:** {row['รายละเอียด']}")
+        if row['รายละเอียด']:
+                st.info(f"**📝 รายละเอียด:** {row['รายละเอียด']}")
                 
-                if row['หมายเหตุ']:
-                    st.warning(f"**⚠️ หมายเหตุ:** {row['หมายเหตุ']}")
+        if row['หมายเหตุ']:
+                st.warning(f"**⚠️ หมายเหตุ:** {row['หมายเหตุ']}")
             
             with c3:
                 # ปุ่มแก้ไขและลบ
