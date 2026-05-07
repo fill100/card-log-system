@@ -121,10 +121,7 @@ if not df_view.empty:
         with st.container(border=True):
             # ส่วนหัวของ Card
             c1, c2, c3 = st.columns([1.5, 4, 1.5])
-            with c1:
-                st.subheader(f"🆔 {row['Freshdesk ID']}")
-                st.caption(f"📅 {row['วันที่รับเคส']}")
-                # ค้นหาบรรทัดนี้ในส่วนที่แสดง Card UI
+
             with c1:
             # แก้จาก row['Freshdesk ID'] เป็นการลบ .0 ออกแบบสดๆ อีกครั้งเพื่อความปลอดภัย
             clean_id = str(row['Freshdesk ID']).replace('.0', '') if pd.notna(row['Freshdesk ID']) else "N/A"
