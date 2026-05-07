@@ -12,13 +12,37 @@ SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1jphuWBQJ36hb3vtzCZnbm
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ฟังก์ชันอ่านข้อมูล
 def get_data():
+    """ฟังก์ชันหลักในการดึงข้อมูลจาก Google Sheets"""
     return conn.read(spreadsheet=SPREADSHEET_URL, ttl="0")
 
-# ฟังก์ชันบันทึก/แก้ไขข้อมูลทั้งหมด
 def update_gsheets(df_to_save):
+    """ฟังก์ชันสำหรับบันทึกข้อมูลทับลงใน Google Sheets"""
     conn.update(spreadsheet=SPREADSHEET_URL, data=df_to_save)
+
+def get_safe_data():
+    """ฟังก์ชันดึงข้อมูลแบบปลอดภัย ตรวจสอบคอลัมน์ป้องกัน Error"""
+    required_cols = [
+        'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
+        'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
+    ]
+    try:
+        df = get_data()
+        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
+            return pd.DataFrame(columns=required_cols)
+            
+        # ล้างชื่อคอลัมน์ ตัดช่องว่างที่อาจเผลอพิมพ์เกิน
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # ตรวจสอบคอลัมน์ที่จำเป็น
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = "" 
+        
+        return df[required_cols]
+    except Exception as e:
+        st.warning(f"⚠️ ระบบกำลังเชื่อมต่อหรือรอหัวตารางจาก Google Sheets: {e}")
+        return pd.DataFrame(columns=required_cols)
 
 # --- 3. ข้อมูลตัวเลือก (Dropdown) ---
 SELECT_TEXT = "--- กรุณาเลือก ---"
@@ -42,45 +66,24 @@ EDIT_LIST = [SELECT_TEXT] + ["แก้ไขชื่อ", "แก้ไขว�
 STATUS_LIST = [SELECT_TEXT] + ["สามารถแก้ไขได้เลย", "อนุมัติ", "ไม่อนุมัติ"]
 
 # --- 4. ส่วนหน้าจอหลัก ---
-st.title("📝 ระบบบันทึก Log ออนไลน์ (Google Sheets)")
+st.title("📝 ระบบบันทึก Log แก้ไขข้อมูลหน้าบัตร")
 
-# ฟังก์ชันดึงข้อมูลแบบปลอดภัย
-# --- ค้นหาฟังก์ชันเดิม แล้ววางทับด้วยชุดนี้ครับ ---
-
-def get_safe_data():
-    # กำหนดคอลัมน์มาตรฐานไว้ก่อน เพื่อให้แอปมีโครงสร้างตารางเสมอ
-    required_cols = [
-        'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
-        'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
-    ]
-    
-    try:
-        # 1. พยายามอ่านข้อมูลจาก Google Sheets
-        df = conn.read(spreadsheet=SPREADSHEET_URL, ttl="0")
+# ส่วนที่ 1: เพิ่มรายการใหม่
+with st.expander("➕ เพิ่มรายการใหม่", expanded=True):
+    with st.form("my_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            f_id = st.text_input("Freshdesk ID")
+            center = st.selectbox("ศูนย์บริการ", LOCATIONS)
+        with col2:
+            edit_info = st.selectbox("ต้องการแก้ไขข้อมูล", EDIT_LIST)
+            staff = st.selectbox("เจ้าหน้าที่แก้ไขข้อมูล", STAFF_LIST)
+        with col3:
+            status = st.selectbox("อนุมัติแก้หรือไม่", STATUS_LIST)
+            note = st.text_input("หมายเหตุ")
+        detail = st.text_area("รายละเอียด")
         
-        # 2. ตรวจสอบว่าถ้า df เป็น None หรืออ่านไม่ได้ ให้สร้างตารางเปล่าที่มีหัวคอลัมน์ครบ
-        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
-            return pd.DataFrame(columns=required_cols)
-            
-        # 3. ล้างชื่อคอลัมน์ ตัดช่องว่างที่อาจเผลอพิมพ์เกินใน Google Sheets
-        df.columns = [str(c).strip() for c in df.columns]
-        
-        # 4. ตรวจสอบคอลัมน์ที่จำเป็น ถ้าใน Sheet ไม่มี ให้สร้างหลอกไว้ป้องกันโปรแกรม Error
-        for col in required_cols:
-            if col not in df.columns:
-                df[col] = "" 
-        
-        # 5. ส่งคืนเฉพาะคอลัมน์ที่เราต้องการใช้งาน
-        return df[required_cols]
-        
-    except Exception as e:
-        # ถ้าเกิด Error เช่น ลืมแชร์สิทธิ์ หรือ URL ผิด ให้แสดงคำเตือนและส่งตารางเปล่ากลับไป
-        st.warning(f"⚠️ ระบบกำลังตรวจสอบการเชื่อมต่อ: {e}")
-        return pd.DataFrame(columns=required_cols)
-
-# --- หลังจากฟังก์ชันนี้เสร็จ ก็จะเป็นส่วนของ st.title และ st.expander ต่อไปตามปกติครับ ---
-        
-  if st.form_submit_button("🚀 บันทึกข้อมูล"):
+        if st.form_submit_button("🚀 บันทึกข้อมูล"):
             if SELECT_TEXT in [center, edit_info, staff, status] or not f_id or not detail.strip():
                 st.error("❌ กรุณากรอกข้อมูลให้ครบถ้วน")
             else:
@@ -92,7 +95,7 @@ def get_safe_data():
                     'เจ้าหน้าที่แก้ไขข้อมูล': staff, 'อนุมัติแก้หรือไม่': status, 'หมายเหตุ': note
                 }
                 
-                # บรรทัดที่ 87 ต้องย่อหน้าให้ตรงกับบรรทัดด้านบน (new_row)
+                # ดึงข้อมูลปัจจุบันมาต่อท้าย (ตรวจสอบย่อหน้าตรงนี้ให้ดี)
                 df_current = get_safe_data()
                 df_updated = pd.concat([df_current, pd.DataFrame([new_row])], ignore_index=True)
                 update_gsheets(df_updated)
@@ -109,11 +112,10 @@ if not df.empty:
     if st.button("🔄 Refresh ข้อมูล"):
         st.rerun()
 
-    # เรียงลำดับเอาอันล่าสุดขึ้นก่อน (ถ้ามีข้อมูล)
+    # เรียงลำดับเอาอันล่าสุดขึ้นก่อน
     df_display = df.iloc[::-1].copy()
 
     for index, row in df_display.iterrows():
-        # ตรวจสอบค่าว่างเพื่อป้องกัน Error เวลาแสดงผล
         row_id = row['Freshdesk ID'] if pd.notna(row['Freshdesk ID']) else "N/A"
         row_status = row['อนุมัติแก้หรือไม่'] if pd.notna(row['อนุมัติแก้หรือไม่']) else "รอตรวจสอบ"
         
@@ -162,4 +164,4 @@ if not df.empty:
                         st.session_state[f"edit_mode_{index}"] = False
                         st.rerun()
 else:
-    st.info("💡 ยังไม่มีข้อมูลในระบบ หรือกำลังโหลดข้อมูล...")
+    st.info("💡 ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อข้อมูล...")
