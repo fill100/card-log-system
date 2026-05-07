@@ -1,36 +1,36 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
-import os
 
-# --- 1. ตั้งค่าที่อยู่ไฟล์ ---
-FILE_NAME = r'C:\Users\chanon.cha\OneDrive - Joint Venture Future Sky\JVFS-IT - JVFS-IT แก้ไขข้อมูลออกบัตร\Log update Test\Log แก้ไขข้อมูลการออกบัตร Test Web app.xlsx'
+# --- 1. ตั้งค่าการเชื่อมต่อ Google Sheets ---
+# หมายเหตุ: URL ของไฟล์ Google Sheets ของคุณ
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/XXXXXXXXXX/edit#gid=0"
 
-# --- 2. ฟังก์ชันจัดการไฟล์ Excel (ใส่ไว้ด้านบนสุดเพื่อให้ระบบรู้จัก) ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-def save_to_excel(data_dict):
-    """บันทึกข้อมูลใหม่ต่อท้าย"""
-    now = datetime.now()
-    sheet_name = f"{now.day}.{now.month:02d}.{(now.year + 543) % 100}"
+def save_to_gsheets(data_dict):
+    """บันทึกข้อมูลใหม่ลง Google Sheets"""
+    # ดึงข้อมูลเดิมมาเพื่อหาจุดต่อท้าย
+    existing_data = conn.read(spreadsheet=SPREADSHEET_URL, usecols=list(range(8)))
+    existing_data = existing_data.dropna(how="all")
+    
     new_df = pd.DataFrame([data_dict])
-    if os.path.exists(FILE_NAME):
-        with pd.ExcelWriter(FILE_NAME, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-            try:
-                existing_df = pd.read_excel(FILE_NAME, sheet_name=sheet_name)
-                updated_df = pd.concat([existing_df, new_df], ignore_index=True)
-                updated_df.to_excel(writer, sheet_name=sheet_name, index=False)
-            except:
-                new_df.to_excel(writer, sheet_name=sheet_name, index=False)
-    else:
-        new_df.to_excel(FILE_NAME, sheet_name=sheet_name, index=False)
+    updated_df = pd.concat([existing_data, new_df], ignore_index=True)
+    
+    # อัปเดตกลับไปยัง Google Sheets
+    conn.update(spreadsheet=SPREADSHEET_URL, data=updated_df)
 
-def update_excel_file(df_to_save):
-    """ฟังก์ชันแก้ไข/ลบ: บันทึกข้อมูลทับลงใน Sheet ล่าสุด"""
-    now = datetime.now()
-    sheet_name = f"{now.day}.{now.month:02d}.{(now.year + 543) % 100}"
-    with pd.ExcelWriter(FILE_NAME, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-        df_to_save.to_excel(writer, sheet_name=sheet_name, index=False)
+def update_gsheets_full(df_to_save):
+    """ฟังก์ชันสำหรับแก้ไข/ลบ: บันทึกทับข้อมูลทั้งหมด"""
+    conn.update(spreadsheet=SPREADSHEET_URL, data=df_to_save)
 
+# --- แก้ไขในส่วน UI เดิม ---
+# เปลี่ยนจาก save_to_excel(payload) เป็น save_to_gsheets(payload)
+# เปลี่ยนจาก update_excel_file(df) เป็น update_gsheets_full(df)
+
+# ในส่วนการดึงข้อมูลมาโชว์ (Preview) ให้ใช้:
+# df = conn.read(spreadsheet=SPREADSHEET_URL)
 # --- 3. ข้อมูลตัวเลือกต่างๆ ---
 SELECT_TEXT = "--- กรุณาเลือก ---"
 LOCATIONS = [SELECT_TEXT] + [  "One Bangkok", "กรุงเทพมหานคร 1 (สจก.2)", "กรุงเทพมหานคร 2 (สจก.5)", "กรุงเทพมหานคร 5 (สจก.9)", 
