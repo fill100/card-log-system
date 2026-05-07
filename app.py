@@ -102,57 +102,69 @@ with st.expander("➕ เพิ่มรายการใหม่", expanded=T
 
 # ส่วนที่ 2: แสดงรายการและ "แก้ไข"
 st.divider()
+col_title, col_date = st.columns([2, 1])
+with col_title:
+    st.subheader("🛠️ รายการแก้ไขข้อมูลหน้าบัตร")
 selected_date = st.date_input("📅 เลือกวันที่เพื่อดู/แก้ไขข้อมูล", datetime.now())
 view_sheet_name = f"{selected_date.day}.{selected_date.month:02d}.{(selected_date.year + 543) % 100}"
-
 df_view = get_safe_data(view_sheet_name)
 
 if not df_view.empty:
-    # แสดงจากใหม่ไปเก่า
     for index, row in df_view.iloc[::-1].iterrows():
+        # กำหนดสีไอคอนตามสถานะ
+        status_val = str(row['อนุมัติแก้หรือไม่'])
+        if status_val == "อนุมัติ": color = "green"; icon = "✅"
+        elif status_val == "ไม่อนุมัติ": color = "red"; icon = "❌"
+        elif status_val == "สามารถแก้ไขได้เลย": color = "blue"; icon = "⚡"
+        else: color = "gray"; icon = "⏳"
+
         with st.container(border=True):
-            # แสดงข้อมูลสรุป
-            c1, c2, c3 = st.columns([2, 5, 1])
+            # ส่วนหัวของ Card
+            c1, c2, c3 = st.columns([1.5, 4, 1.5])
             with c1:
-                st.write(f"**ID:** {row['Freshdesk ID']}")
+                st.subheader(f"🆔 {row['Freshdesk ID']}")
                 st.caption(f"📅 {row['วันที่รับเคส']}")
+            
             with c2:
-                st.write(f"**สถานะ:** {row['อนุมัติแก้หรือไม่']} | **โดย:** {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
-                st.write(f"🔍 {row['ต้องการแก้ไขข้อมูล']} ({row['ศูนย์บริการ']})")
+                # แสดงสถานะ อนุมัติแก้หรือไม่ แบบเน้นๆ
+                st.markdown(f"### {icon} :{color}[{status_val}]")
+                st.markdown(f"**📍 ศูนย์:** {row['ศูนย์บริการ']} | **👤 โดย:** {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
+                
+                # แสดง รายละเอียด แบบกล่องข้อความ
+                if row['รายละเอียด']:
+                    st.info(f"**📝 รายละเอียด:** {row['รายละเอียด']}")
+                
+                if row['หมายเหตุ']:
+                    st.warning(f"**⚠️ หมายเหตุ:** {row['หมายเหตุ']}")
+            
             with c3:
-                # ปุ่มเปิดโหมดแก้ไข
-                edit_btn = st.button("✏️ แก้ไข", key=f"edit_btn_{index}")
+                # ปุ่มแก้ไขและลบ
+                edit_active = st.button("✏️ แก้ไข", key=f"edit_btn_{index}")
                 if st.button("🗑️ ลบ", key=f"del_{index}"):
                     df_to_save = df_view.drop(index)
                     conn.update(spreadsheet=SPREADSHEET_URL, worksheet=view_sheet_name, data=df_to_save)
                     st.rerun()
 
-            # ส่วนฟอร์มแก้ไข (จะปรากฏเมื่อกดปุ่มแก้ไข)
-            if st.session_state.get(f"editing_{index}", False) or edit_btn:
+            # ฟอร์มแก้ไข (จะปรากฏใต้ Card เมื่อกดปุ่ม)
+            if st.session_state.get(f"editing_{index}", False) or edit_active:
                 st.session_state[f"editing_{index}"] = True
-                with st.form(key=f"edit_form_{index}"):
-                    st.markdown("---")
-                    st.write(f"🛠️ กำลังแก้ไขรายการ ID: {row['Freshdesk ID']}")
+                with st.form(key=f"form_edit_{index}"):
+                    st.write("🔧 **แก้ไขสถานะและรายละเอียด**")
                     col_e1, col_e2 = st.columns(2)
                     with col_e1:
-                        new_status = st.selectbox("เปลี่ยนสถานะ", STATUS_LIST, 
-                                                 index=STATUS_LIST.index(row['อนุมัติแก้หรือไม่']) if row['อนุมัติแก้หรือไม่'] in STATUS_LIST else 0)
-                        new_note = st.text_input("แก้ไขหมายเหตุ", value=row['หมายเหตุ'])
+                        new_status = st.selectbox("สถานะ", STATUS_LIST, index=STATUS_LIST.index(status_val) if status_val in STATUS_LIST else 0)
+                        new_note = st.text_input("หมายเหตุ", value=row['หมายเหตุ'])
                     with col_e2:
-                        new_staff = st.selectbox("เปลี่ยนเจ้าหน้าที่", STAFF_LIST, 
-                                                index=STAFF_LIST.index(row['เจ้าหน้าที่แก้ไขข้อมูล']) if row['เจ้าหน้าที่แก้ไขข้อมูล'] in STAFF_LIST else 0)
-                        new_detail = st.text_area("แก้ไขรายละเอียด", value=row['รายละเอียด'])
+                        new_detail = st.text_area("รายละเอียด", value=row['รายละเอียด'])
                     
-                    if st.form_submit_button("💾 บันทึกการแก้ไข"):
+                    if st.form_submit_button("💾 บันทึก"):
                         df_view.at[index, 'อนุมัติแก้หรือไม่'] = new_status
-                        df_view.at[index, 'หมายเหตุ'] = new_note
-                        df_view.at[index, 'เจ้าหน้าที่แก้ไขข้อมูล'] = new_staff
                         df_view.at[index, 'รายละเอียด'] = new_detail
+                        df_view.at[index, 'หมายเหตุ'] = new_note
                         conn.update(spreadsheet=SPREADSHEET_URL, worksheet=view_sheet_name, data=df_view)
                         st.session_state[f"editing_{index}"] = False
-                        st.success("อัปเดตข้อมูลแล้ว!")
                         st.rerun()
-                    if st.form_submit_button("❌ ยกเลิก"):
+                    if st.form_submit_button("ยกเลิก"):
                         st.session_state[f"editing_{index}"] = False
                         st.rerun()
 else:
