@@ -12,36 +12,29 @@ SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1jphuWBQJ36hb3vtzCZnbm
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-def get_data():
-    """ฟังก์ชันหลักในการดึงข้อมูลจาก Google Sheets"""
-    return conn.read(spreadsheet=SPREADSHEET_URL, ttl="0")
+def get_current_sheet_name():
+    """สร้างชื่อชีตตามวันที่ปัจจุบัน (รูปแบบ: 7.05.69)"""
+    now = datetime.now()
+    return f"{now.day}.{now.month:02d}.{(now.year + 543) % 100}"
 
-def update_gsheets(df_to_save):
-    """ฟังก์ชันสำหรับบันทึกข้อมูลทับลงใน Google Sheets"""
-    conn.update(spreadsheet=SPREADSHEET_URL, data=df_to_save)
-
-def get_safe_data():
-    """ฟังก์ชันดึงข้อมูลแบบปลอดภัย ตรวจสอบคอลัมน์ป้องกัน Error"""
+def get_safe_data(sheet_name):
+    """ดึงข้อมูลจากชีตที่ระบุ ถ้าไม่มีให้คืนค่าตารางเปล่า"""
     required_cols = [
         'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
         'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
     ]
     try:
-        df = get_data()
+        df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet=sheet_name, ttl="0")
         if df is None or (isinstance(df, pd.DataFrame) and df.empty):
             return pd.DataFrame(columns=required_cols)
-            
-        # ล้างชื่อคอลัมน์ ตัดช่องว่างที่อาจเผลอพิมพ์เกิน
-        df.columns = [str(c).strip() for c in df.columns]
         
-        # ตรวจสอบคอลัมน์ที่จำเป็น
+        df.columns = [str(c).strip() for c in df.columns]
         for col in required_cols:
             if col not in df.columns:
                 df[col] = "" 
-        
         return df[required_cols]
-    except Exception as e:
-        st.warning(f"⚠️ ระบบกำลังเชื่อมต่อหรือรอหัวตารางจาก Google Sheets: {e}")
+    except:
+        # ถ้าหาชีตไม่เจอ (เช่น เป็นวันใหม่ที่ยังไม่มีการบันทึก)
         return pd.DataFrame(columns=required_cols)
 
 # --- 3. ข้อมูลตัวเลือก (Dropdown) ---
@@ -68,8 +61,11 @@ STATUS_LIST = [SELECT_TEXT] + ["สามารถแก้ไขได้เล
 # --- 4. ส่วนหน้าจอหลัก ---
 st.title("📝 ระบบบันทึก Log แก้ไขข้อมูลหน้าบัตร")
 
-# ส่วนที่ 1: เพิ่มรายการใหม่
+# ส่วนที่ 1: เพิ่มรายการใหม่ (จะไปลงชีตของวันนี้เสมอ)
 with st.expander("➕ เพิ่มรายการใหม่", expanded=True):
+    current_today_sheet = get_current_sheet_name()
+    st.info(f"📍 ข้อมูลจะถูกบันทึกลงในชีต: **{current_today_sheet}**")
+    
     with st.form("my_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -95,26 +91,32 @@ with st.expander("➕ เพิ่มรายการใหม่", expanded=T
                     'เจ้าหน้าที่แก้ไขข้อมูล': staff, 'อนุมัติแก้หรือไม่': status, 'หมายเหตุ': note
                 }
                 
-                # ดึงข้อมูลปัจจุบันมาต่อท้าย (ตรวจสอบย่อหน้าตรงนี้ให้ดี)
-                df_current = get_safe_data()
-                df_updated = pd.concat([df_current, pd.DataFrame([new_row])], ignore_index=True)
-                update_gsheets(df_updated)
-                st.success("✅ บันทึกข้อมูลเรียบร้อย!")
+                # อ่านข้อมูลชีตวันนี้
+                df_today = get_safe_data(current_today_sheet)
+                df_updated = pd.concat([df_today, pd.DataFrame([new_row])], ignore_index=True)
+                
+                # บันทึก (ถ้าไม่มีชีต ระบบจะสร้างให้เอง)
+                conn.update(spreadsheet=SPREADSHEET_URL, worksheet=current_today_sheet, data=df_updated)
+                st.success(f"✅ บันทึกข้อมูลลงชีต {current_today_sheet} สำเร็จ!")
                 st.rerun()
 
-# ส่วนที่ 2: แสดงรายการและแก้ไข (Card UI)
+# ส่วนที่ 2: แสดงรายการและเลือกวันที่
 st.divider()
-st.subheader("🛠️ รายการล่าสุด")
+col_title, col_date = st.columns([2, 1])
+with col_title:
+    st.subheader("🛠️ รายการย้อนหลัง")
 
-df = get_safe_data()
+with col_date:
+    # ให้ผู้ใช้เลือกวันที่ที่ต้องการดู (ค่าเริ่มต้นคือวันนี้)
+    selected_date = st.date_input("เลือกวันที่เพื่อดูข้อมูล", datetime.now())
+    view_sheet_name = f"{selected_date.day}.{selected_date.month:02d}.{(selected_date.year + 543) % 100}"
 
-if not df.empty:
-    if st.button("🔄 Refresh ข้อมูล"):
-        st.rerun()
+st.caption(f"กำลังแสดงข้อมูลจากชีต: **{view_sheet_name}**")
 
-    # เรียงลำดับเอาอันล่าสุดขึ้นก่อน
-    df_display = df.iloc[::-1].copy()
+df_view = get_safe_data(view_sheet_name)
 
+if not df_view.empty:
+    df_display = df_view.iloc[::-1].copy()
     for index, row in df_display.iterrows():
         row_id = row['Freshdesk ID'] if pd.notna(row['Freshdesk ID']) else "N/A"
         row_status = row['อนุมัติแก้หรือไม่'] if pd.notna(row['อนุมัติแก้หรือไม่']) else "รอตรวจสอบ"
@@ -133,35 +135,9 @@ if not df.empty:
                 st.write(f"📍 {row['ศูนย์บริการ']} | 👤 {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
                 st.info(f"📝 {row['รายละเอียด']}")
             with c3:
-                if st.button("📝 แก้ไข", key=f"edit_{index}"):
-                    st.session_state[f"edit_mode_{index}"] = True
                 if st.button("🗑️ ลบ", key=f"del_{index}"):
-                    df_to_save = df.drop(index)
-                    update_gsheets(df_to_save)
+                    df_to_save = df_view.drop(index)
+                    conn.update(spreadsheet=SPREADSHEET_URL, worksheet=view_sheet_name, data=df_to_save)
                     st.rerun()
-
-            # ฟอร์มแก้ไขภายใน Card
-            if st.session_state.get(f"edit_mode_{index}", False):
-                with st.form(key=f"form_{index}"):
-                    st.write(f"✍️ แก้ไขเคส ID: {row_id}")
-                    
-                    try:
-                        current_idx = STATUS_LIST.index(row_status)
-                    except:
-                        current_idx = 0
-                        
-                    new_status = st.selectbox("แก้ไขสถานะ", STATUS_LIST, index=current_idx)
-                    new_note = st.text_input("แก้ไขหมายเหตุ", value=str(row['หมายเหตุ']) if pd.notna(row['หมายเหตุ']) else "")
-                    
-                    col_f1, col_f2 = st.columns(2)
-                    if col_f1.form_submit_button("💾 บันทึก"):
-                        df.at[index, 'อนุมัติแก้หรือไม่'] = new_status
-                        df.at[index, 'หมายเหตุ'] = new_note
-                        update_gsheets(df)
-                        st.session_state[f"edit_mode_{index}"] = False
-                        st.rerun()
-                    if col_f2.form_submit_button("❌ ยกเลิก"):
-                        st.session_state[f"edit_mode_{index}"] = False
-                        st.rerun()
 else:
-    st.info("💡 ยังไม่มีข้อมูลในระบบ หรือกำลังเชื่อมต่อข้อมูล...")
+    st.info(f"📅 วันที่ {view_sheet_name} ยังไม่มีการบันทึกข้อมูล")
