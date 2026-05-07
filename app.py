@@ -80,10 +80,19 @@ def get_safe_data():
 
 # --- หลังจากฟังก์ชันนี้เสร็จ ก็จะเป็นส่วนของ st.title และ st.expander ต่อไปตามปกติครับ ---
         
-    except Exception as e:
-        # หากเกิด Error ใดๆ ให้พิมพ์บอกในแอป (เพื่อเช็คสาเหตุ) และส่งตารางเปล่ากลับไป
-        st.warning(f"⚠️ ระบบกำลังเชื่อมต่อหรือรอข้อมูลจาก Google Sheets: {e}")
-        return pd.DataFrame(columns=required_cols)
+  if st.form_submit_button("🚀 บันทึกข้อมูล"):
+            if SELECT_TEXT in [center, edit_info, staff, status] or not f_id or not detail.strip():
+                st.error("❌ กรุณากรอกข้อมูลให้ครบถ้วน")
+            else:
+                now = datetime.now()
+                display_date = f"{now.day}/{now.month:02d}/{now.year + 543}"
+                new_row = {
+                    'วันที่รับเคส': display_date, 'Freshdesk ID': f_id, 'รายละเอียด': detail,
+                    'ศูนย์บริการ': center, 'ต้องการแก้ไขข้อมูล': edit_info,
+                    'เจ้าหน้าที่แก้ไขข้อมูล': staff, 'อนุมัติแก้หรือไม่': status, 'หมายเหตุ': note
+                }
+                
+                # บรรทัดที่ 87 ต้องย่อหน้าให้ตรงกับบรรทัดด้านบน (new_row)
                 df_current = get_safe_data()
                 df_updated = pd.concat([df_current, pd.DataFrame([new_row])], ignore_index=True)
                 update_gsheets(df_updated)
