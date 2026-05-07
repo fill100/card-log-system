@@ -8,7 +8,7 @@ st.set_page_config(page_title="Card Log System Online", layout="wide")
 
 # --- 2. เชื่อมต่อ Google Sheets ---
 # สำคัญ: เปลี่ยน URL เป็นลิงก์ Google Sheets ของคุณ
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1c_j-WUt3GfU-aGER-8T03-TD8QNrAmp4/edit?usp=sharing&ouid=109198691971293293321&rtpof=true&sd=true"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1jphuWBQJ36hb3vtzCZnbmrbpNmj0MJ6yu869cj_sfS8/edit?usp=sharing"
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -42,7 +42,7 @@ EDIT_LIST = [SELECT_TEXT] + ["แก้ไขชื่อ", "แก้ไขว�
 STATUS_LIST = [SELECT_TEXT] + ["สามารถแก้ไขได้เลย", "อนุมัติ", "ไม่อนุมัติ"]
 
 # --- 4. ส่วนหน้าจอหลัก ---
-st.title("📝 ระบบบันทึก Log ออนไลน์ (Google Sheets)")
+st.title("📝 ระบบบันทึก Log แก้ไขข้อมูลออกบัตร")
 
 # ส่วนที่ 1: เพิ่มรายการใหม่
 with st.expander("➕ เพิ่มรายการใหม่", expanded=True):
