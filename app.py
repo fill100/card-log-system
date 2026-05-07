@@ -4,7 +4,7 @@ from datetime import datetime
 import os
 
 # --- 1. ตั้งค่าที่อยู่ไฟล์ ---
-FILE_NAME = r'C:\Users\chanon.cha\OneDrive - Joint Venture Future Sky\JVFS-IT - JVFS-IT แก้ไขข้อมูลออกบัตร\Log แก้ไขข้อมูลการออกบัตร.xlsx'
+FILE_NAME = r'C:\Users\chanon.cha\OneDrive - Joint Venture Future Sky\JVFS-IT - JVFS-IT แก้ไขข้อมูลออกบัตร\Log update Test\Log แก้ไขข้อมูลการออกบัตร Test Web app.xlsx'
 
 # --- 2. ฟังก์ชันจัดการไฟล์ Excel (ใส่ไว้ด้านบนสุดเพื่อให้ระบบรู้จัก) ---
 
