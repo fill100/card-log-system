@@ -5,7 +5,7 @@ from datetime import datetime
 
 # --- 1. ตั้งค่าการเชื่อมต่อ Google Sheets ---
 # หมายเหตุ: URL ของไฟล์ Google Sheets ของคุณ
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/XXXXXXXXXX/edit#gid=0"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1c_j-WUt3GfU-aGER-8T03-TD8QNrAmp4/edit?usp=sharing&ouid=109198691971293293321&rtpof=true&sd=true"
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
