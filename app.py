@@ -42,44 +42,8 @@ EDIT_LIST = [SELECT_TEXT] + ["แก้ไขชื่อ", "แก้ไขว�
 STATUS_LIST = [SELECT_TEXT] + ["สามารถแก้ไขได้เลย", "อนุมัติ", "ไม่อนุมัติ"]
 
 # --- 4. ส่วนหน้าจอหลัก ---
-st.title("📝 ระบบบันทึก Log แก้ไขข้อมูลออกบัตร")
+st.title("📝 ระบบบันทึก Log ออนไลน์ (Google Sheets)")
 
-# ส่วนที่ 1: เพิ่มรายการใหม่
-with st.expander("➕ เพิ่มรายการใหม่", expanded=True):
-    with st.form("my_form", clear_on_submit=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            f_id = st.text_input("Freshdesk ID")
-            center = st.selectbox("ศูนย์บริการ", LOCATIONS)
-        with col2:
-            edit_info = st.selectbox("ต้องการแก้ไขข้อมูล", EDIT_LIST)
-            staff = st.selectbox("เจ้าหน้าที่แก้ไขข้อมูล", STAFF_LIST)
-        with col3:
-            status = st.selectbox("อนุมัติแก้หรือไม่", STATUS_LIST)
-            note = st.text_input("หมายเหตุ")
-        detail = st.text_area("รายละเอียด")
-        
-        if st.form_submit_button("🚀 บันทึกข้อมูล"):
-            if SELECT_TEXT in [center, edit_info, staff, status] or not f_id or not detail.strip():
-                st.error("❌ กรุณากรอกข้อมูลให้ครบถ้วน")
-            else:
-                now = datetime.now()
-                display_date = f"{now.day}/{now.month:02d}/{now.year + 543}"
-                new_row = {
-                    'วันที่รับเคส': display_date, 'Freshdesk ID': f_id, 'รายละเอียด': detail,
-                    'ศูนย์บริการ': center, 'ต้องการแก้ไขข้อมูล': edit_info,
-                    'เจ้าหน้าที่แก้ไขข้อมูล': staff, 'อนุมัติแก้หรือไม่': status, 'หมายเหตุ': note
-                }
-                # อ่านข้อมูลเก่ามาต่อท้าย
-                df = get_data()
-                df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-                update_gsheets(df)
-                st.success("✅ บันทึกข้อมูลลง Google Sheets สำเร็จ!")
-                st.rerun()
-
-# ส่วนที่ 2: แสดงรายการและแก้ไข (Card UI)
-st.divider()
-st.subheader("🛠️ รายการล่าสุด (แก้ไข/ลบ)")
 # ฟังก์ชันดึงข้อมูลแบบปลอดภัย
 def get_safe_data():
     try:
@@ -200,4 +164,3 @@ if not df.empty:
                         st.rerun()
 else:
     st.info("💡 ยังไม่มีข้อมูลในระบบ หรือกำลังโหลดข้อมูล...")
-    st.error(f"Error: {e}")
