@@ -45,30 +45,40 @@ STATUS_LIST = [SELECT_TEXT] + ["สามารถแก้ไขได้เล
 st.title("📝 ระบบบันทึก Log ออนไลน์ (Google Sheets)")
 
 # ฟังก์ชันดึงข้อมูลแบบปลอดภัย
+# --- ค้นหาฟังก์ชันเดิม แล้ววางทับด้วยชุดนี้ครับ ---
+
 def get_safe_data():
-    # กำหนดคอลัมน์มาตรฐานไว้ก่อน
+    # กำหนดคอลัมน์มาตรฐานไว้ก่อน เพื่อให้แอปมีโครงสร้างตารางเสมอ
     required_cols = [
         'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
         'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
     ]
     
     try:
-        # พยายามอ่านข้อมูล
+        # 1. พยายามอ่านข้อมูลจาก Google Sheets
         df = conn.read(spreadsheet=SPREADSHEET_URL, ttl="0")
         
-        # ถ้าอ่านได้เป็น None หรือไม่ใช่ DataFrame
-        if df is None:
+        # 2. ตรวจสอบว่าถ้า df เป็น None หรืออ่านไม่ได้ ให้สร้างตารางเปล่าที่มีหัวคอลัมน์ครบ
+        if df is None or (isinstance(df, pd.DataFrame) and df.empty):
             return pd.DataFrame(columns=required_cols)
             
-        # ล้างชื่อคอลัมน์ (ตัดช่องว่าง)
+        # 3. ล้างชื่อคอลัมน์ ตัดช่องว่างที่อาจเผลอพิมพ์เกินใน Google Sheets
         df.columns = [str(c).strip() for c in df.columns]
         
-        # ตรวจสอบว่าคอลัมน์ครบไหม ถ้าไม่ครบให้สร้างใหม่เป็นค่าว่าง
+        # 4. ตรวจสอบคอลัมน์ที่จำเป็น ถ้าใน Sheet ไม่มี ให้สร้างหลอกไว้ป้องกันโปรแกรม Error
         for col in required_cols:
             if col not in df.columns:
                 df[col] = "" 
         
+        # 5. ส่งคืนเฉพาะคอลัมน์ที่เราต้องการใช้งาน
         return df[required_cols]
+        
+    except Exception as e:
+        # ถ้าเกิด Error เช่น ลืมแชร์สิทธิ์ หรือ URL ผิด ให้แสดงคำเตือนและส่งตารางเปล่ากลับไป
+        st.warning(f"⚠️ ระบบกำลังตรวจสอบการเชื่อมต่อ: {e}")
+        return pd.DataFrame(columns=required_cols)
+
+# --- หลังจากฟังก์ชันนี้เสร็จ ก็จะเป็นส่วนของ st.title และ st.expander ต่อไปตามปกติครับ ---
         
     except Exception as e:
         # หากเกิด Error ใดๆ ให้พิมพ์บอกในแอป (เพื่อเช็คสาเหตุ) และส่งตารางเปล่ากลับไป
