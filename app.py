@@ -124,6 +124,12 @@ if not df_view.empty:
             with c1:
                 st.subheader(f"🆔 {row['Freshdesk ID']}")
                 st.caption(f"📅 {row['วันที่รับเคส']}")
+                # ค้นหาบรรทัดนี้ในส่วนที่แสดง Card UI
+            with c1:
+            # แก้จาก row['Freshdesk ID'] เป็นการลบ .0 ออกแบบสดๆ อีกครั้งเพื่อความปลอดภัย
+            clean_id = str(row['Freshdesk ID']).replace('.0', '') if pd.notna(row['Freshdesk ID']) else "N/A"
+            st.subheader(f"🆔 {clean_id}")
+            st.caption(f"📅 {row['วันที่รับเคส']}")
             
             with c2:
                 # แสดงสถานะ อนุมัติแก้หรือไม่ แบบเน้นๆ
