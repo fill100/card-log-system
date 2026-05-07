@@ -102,52 +102,41 @@ with st.expander("➕ เพิ่มรายการใหม่", expanded=T
 
 # ส่วนที่ 2: แสดงรายการและ "แก้ไข"
 st.divider()
-col_title, col_date = st.columns([2, 1])
-with col_title:
-    st.subheader("🛠️ รายการแก้ไขข้อมูลหน้าบัตร")
-selected_date = st.date_input("📅 เลือกวันที่เพื่อดู/แก้ไขข้อมูล", datetime.now())
+selected_date = st.date_input("📅 เลือกวันที่ดูข้อมูล", datetime.now())
 view_sheet_name = f"{selected_date.day}.{selected_date.month:02d}.{(selected_date.year + 543) % 100}"
 df_view = get_safe_data(view_sheet_name)
 
 if not df_view.empty:
     for index, row in df_view.iloc[::-1].iterrows():
-        # กำหนดสีไอคอนตามสถานะ
         status_val = str(row['อนุมัติแก้หรือไม่'])
         if status_val == "อนุมัติ": color = "green"; icon = "✅"
         elif status_val == "ไม่อนุมัติ": color = "red"; icon = "❌"
         elif status_val == "สามารถแก้ไขได้เลย": color = "blue"; icon = "⚡"
         else: color = "gray"; icon = "⏳"
-            with st.container(border=True):
-            # ส่วนหัวของ Card
-                c1, c2, c3 = st.columns([1.5, 4, 1.5])
-                with c1:
-                # บรรทัดข้างล่างนี้ต้องย่อหน้าเข้าไป (สังเกตระยะห่างจากขอบ)
-                    clean_id = str(row['Freshdesk ID']).replace('.0', '') if pd.notna(row['Freshdesk ID']) else "N/A"
-                    st.subheader(f"🆔 {clean_id}")
-                    st.caption(f"📅 {row['วันที่รับเคส']}")
+
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([1.5, 4, 1.5])
+            with c1:
+                # แก้ไข ID ไม่ให้มี .0
+                clean_id = str(row['Freshdesk ID']).replace('.0', '') if pd.notna(row['Freshdesk ID']) else "N/A"
+                st.subheader(f"🆔 {clean_id}")
+                st.caption(f"📅 {row['วันที่รับเคส']}")
             
-                with c2:
-                # บรรทัดเหล่านี้ก็ต้องย่อหน้าเข้าไปให้ตรงกัน
-                    status_val = str(row['อนุมัติแก้หรือไม่'])
-                    st.markdown(f"### {icon} :{color}[{status_val}]")
-                    st.markdown(f"**📍 ศูนย์:** {row['ศูนย์บริการ']} | **👤 โดย:** {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
-                
-                # แสดง รายละเอียด แบบกล่องข้อความ
-        if row['รายละเอียด']:
-                st.info(f"**📝 รายละเอียด:** {row['รายละเอียด']}")
-                
-        if row['หมายเหตุ']:
-                st.warning(f"**⚠️ หมายเหตุ:** {row['หมายเหตุ']}")
+            with c2:
+                st.markdown(f"### {icon} :{color}[{status_val}]")
+                st.markdown(f"**📍 ศูนย์:** {row['ศูนย์บริการ']} | **👤 โดย:** {row['เจ้าหน้าที่แก้ไขข้อมูล']}")
+                if row['รายละเอียด']:
+                    st.info(f"**📝 รายละเอียด:** {row['รายละเอียด']}")
+                if row['หมายเหตุ']:
+                    st.warning(f"**⚠️ หมายเหตุ:** {row['หมายเหตุ']}")
             
             with c3:
-                # ปุ่มแก้ไขและลบ
                 edit_active = st.button("✏️ แก้ไข", key=f"edit_btn_{index}")
                 if st.button("🗑️ ลบ", key=f"del_{index}"):
                     df_to_save = df_view.drop(index)
                     conn.update(spreadsheet=SPREADSHEET_URL, worksheet=view_sheet_name, data=df_to_save)
                     st.rerun()
 
-            # ฟอร์มแก้ไข (จะปรากฏใต้ Card เมื่อกดปุ่ม)
             if st.session_state.get(f"editing_{index}", False) or edit_active:
                 st.session_state[f"editing_{index}"] = True
                 with st.form(key=f"form_edit_{index}"):
