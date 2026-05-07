@@ -46,41 +46,31 @@ st.title("📝 ระบบบันทึก Log ออนไลน์ (Google 
 
 # ฟังก์ชันดึงข้อมูลแบบปลอดภัย
 def get_safe_data():
+   def get_safe_data():
     try:
-        df = get_data()
-        # รายชื่อคอลัมน์ที่ระบบต้องใช้
+        # ttl="0" เพื่อให้ดึงข้อมูลใหม่ล่าสุดเสมอ ไม่ใช้ cache
+        df = conn.read(spreadsheet=SPREADSHEET_URL, ttl="0")
+        
+        # ตัดช่องว่างหน้า-หลังชื่อคอลัมน์ทิ้ง (แก้ปัญหาพิมพ์เกิน)
+        df.columns = [str(c).strip() for c in df.columns]
+        
         required_cols = [
             'วันที่รับเคส', 'Freshdesk ID', 'รายละเอียด', 'ศูนย์บริการ', 
             'ต้องการแก้ไขข้อมูล', 'เจ้าหน้าที่แก้ไขข้อมูล', 'อนุมัติแก้หรือไม่', 'หมายเหตุ'
         ]
         
-        # ตรวจสอบ: ถ้าไม่มีคอลัมน์ไหนให้สร้างขึ้นมาเป็นค่าว่าง
         if df.empty:
             return pd.DataFrame(columns=required_cols)
             
+        # ตรวจสอบคอลัมน์ ถ้าไม่มีให้สร้างหลอกไว้ป้องกันพัง
         for col in required_cols:
             if col not in df.columns:
-                df[col] = "" # สร้างคอลัมน์ที่ขาดหายไป
+                df[col] = "" 
         
-        return df[required_cols] # คืนค่าเฉพาะคอลัมน์ที่กำหนด
+        return df[required_cols]
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการอ่านข้อมูล: {e}")
         return pd.DataFrame()
-
-# ส่วนที่ 1: เพิ่มรายการใหม่
-with st.expander("➕ เพิ่มรายการใหม่", expanded=True):
-    with st.form("my_form", clear_on_submit=True):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            f_id = st.text_input("Freshdesk ID")
-            center = st.selectbox("ศูนย์บริการ", LOCATIONS)
-        with col2:
-            edit_info = st.selectbox("ต้องการแก้ไขข้อมูล", EDIT_LIST)
-            staff = st.selectbox("เจ้าหน้าที่แก้ไขข้อมูล", STAFF_LIST)
-        with col3:
-            status = st.selectbox("อนุมัติแก้หรือไม่", STATUS_LIST)
-            note = st.text_input("หมายเหตุ")
-        detail = st.text_area("รายละเอียด")
         
         if st.form_submit_button("🚀 บันทึกข้อมูล"):
             if SELECT_TEXT in [center, edit_info, staff, status] or not f_id or not detail.strip():
